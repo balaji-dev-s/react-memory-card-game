@@ -1,108 +1,138 @@
 import React, { useEffect, useState } from "react";
 
-
 export const useGameLogic = (cardValues) => {
+  // All cards in the game
   const [cards, setCards] = useState([]);
+
+  // Stores the currently flipped cards (max 2)
   const [flippedCards, setFlippedcards] = useState([]);
-  const [matchedCards, setMatchedcards] = useState([]);
+
+  // Player score (how many matches)
   const [score, setScore] = useState(0);
+
+  // Number of moves played
   const [moves, setMoves] = useState(0);
+
+  // Lock the game when checking cards
   const [isLocked, setIsLocked] = useState(false);
 
+  // Shuffle cards randomly
   const shuffleArray = (array) => {
-    const shuffled = [...array];
+    const shuffled = [...array]; // make a copy
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    } return shuffled;
+      const temp = shuffled[i];
+      shuffled[i] = shuffled[j];
+      shuffled[j] = temp;
+    }
+    return shuffled;
   };
 
+  // Start or reset the game
   const initializeGame = () => {
-    //Shuffle the cards
     const shuffled = shuffleArray(cardValues);
-    const finalCards = shuffled.map((value, index) => (
-      {
+
+    // Create card objects
+    const finalCards = shuffled.map((value, index) => {
+      return {
         id: index,
-        value,
+        value: value,
         isFlipped: false,
-        isMatched: false
-      }
-    ))
+        isMatched: false,
+      };
+    });
+
+    // Reset all states
     setCards(finalCards);
-    setIsLocked(false);
+    setFlippedcards([]);
     setScore(0);
     setMoves(0);
-    setMatchedcards([]);
-    setFlippedcards([]);
+    setIsLocked(false);
   };
 
+  // Run once when game loads
   useEffect(() => {
     initializeGame();
   }, []);
 
+  // When user clicks a card
   const handlecardClick = (card) => {
-    //Don't allow clicking if the card is already flipped or matched
-    if (card.isFlipped || card.isMatched || isLocked || flippedCards.length === 2) {
+    // Stop if card is already open, matched, or game is locked
+    if (card.isFlipped || card.isMatched || isLocked) {
       return;
     }
-    //update flipped cards state
-    const newCards = cards.map((c) => {
+
+    // Flip the clicked card
+    const updatedCards = cards.map((c) => {
       if (c.id === card.id) {
         return { ...c, isFlipped: true };
       }
-      else {
-        return c;
-      }
-    })
-    setCards(newCards);
+      return c;
+    });
 
-    const newFlippedCards = [...flippedCards, card.id]
-    setFlippedcards(newFlippedCards)
-    //check if two flipped cards are matched
-    if (flippedCards.length == 1) {
-      setIsLocked(true);
-      const firstCard = cards[flippedCards[0]];
-      if (firstCard.value === card.value) {
-        setTimeout(() => {
-          setMatchedcards((prev) => [...prev, firstCard.id, card.id]);
+    setCards(updatedCards);
 
-          setCards((prev) =>
-            prev.map((c) => {
-              if (c.id === card.id || c.id === firstCard.id) {
-                return { ...c, isMatched: true };
-              } else {
-                return c;
-              }
-            }))
-          setFlippedcards([]);
-          setIsLocked(false);
-        }, 50);
-        setScore((prev) => (prev + 1))
-      }
+    // Save flipped cards
+    const newFlippedCards = [...flippedCards, card];
+    setFlippedcards(newFlippedCards);
 
-      else {
-        //flip back the fisrt card and the second card selected
-        setTimeout(() => {
-          const flippedBackCards = newCards.map((c) => {
-            if (newFlippedCards.includes(c.id) || c.id === card.id) {
-              return { ...c, isFlipped: false };
-            }
-            else { return c; }
-          });
-          setCards(flippedBackCards);
-          setIsLocked(false);
-          setFlippedcards([]);
+    // If only one card is flipped, wait
+    if (newFlippedCards.length !== 2) {
+      return;
+    }
 
-        }, 700);
-      }
-      setMoves((prev) => (prev + 1))
+    // Two cards are flipped now
+    setIsLocked(true);
+    setMoves((prev) => prev + 1);
+
+    const firstCard = newFlippedCards[0];
+    const secondCard = newFlippedCards[1];
+
+    // If both cards match
+    if (firstCard.value === secondCard.value) {
+      setTimeout(() => {
+        const matchedCards = updatedCards.map((c) => {
+          if (c.id === firstCard.id || c.id === secondCard.id) {
+            return { ...c, isMatched: true };
+          }
+          return c;
+        });
+
+        setCards(matchedCards);
+        setFlippedcards([]);
+        setIsLocked(false);
+      }, 50);
+
+      // Increase score
+      setScore((prev) => prev + 1);
+    } 
+    // If cards do not match
+    else {
+      setTimeout(() => {
+        const flippedBackCards = updatedCards.map((c) => {
+          if (c.id === firstCard.id || c.id === secondCard.id) {
+            return { ...c, isFlipped: false };
+          }
+          return c;
+        });
+
+        setCards(flippedBackCards);
+        setFlippedcards([]);
+        setIsLocked(false);
+      }, 700);
     }
   };
 
-  const isGameOver = matchedCards.length === cardValues.length;
+  // Check if all cards are matched
+  const isGameOver = cards.length > 0 && cards.every((c) => c.isMatched);
 
-  return{
-    cards, score, moves, isGameOver, initializeGame, handlecardClick
-  }
-
+  // Return values to use in UI
+  return {
+    cards,
+    score,
+    moves,
+    isGameOver,
+    initializeGame,
+    handlecardClick,
+  };
 };
